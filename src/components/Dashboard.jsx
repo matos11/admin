@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PlayerDirectory from './PlayerDirectory';
 import WithdrawalVault from './WithdrawalVault';
-import DepositSystem from './DepositSystem';
+import DepositSystem from './DepositSystem'; // Import the newly created terminal
+
 const FIREBASE_BASE = 'https://ydm-bingo-realtime-default-rtdb.firebaseio.com/';
 
 export default function Dashboard({ adminUser = 'Admin' }) {
@@ -10,15 +11,10 @@ export default function Dashboard({ adminUser = 'Admin' }) {
   const [viewTitle, setViewTitle] = useState('Broadcast Engine');
   const [metrics, setMetrics] = useState({ total_users: 0, total_balance: 0, pending_withdrawals: 0 });
 
-  // Component states
+  // Broadcast specific state
   const [broadcastText, setBroadcastText] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [rawTransactions, setRawTransactions] = useState({});
-  const [parsedDeposits, setParsedDeposits] = useState({});
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncLogs, setSyncLogs] = useState([]);
 
-  // Fetch metrics
   const fetchLiveMetrics = async () => {
     try {
       const [usersRes, withdrawalsRes] = await Promise.all([
@@ -42,39 +38,17 @@ export default function Dashboard({ adminUser = 'Admin' }) {
     }
   };
 
-  // Fetch raw SMS transactions and structured deposits
-  const fetchDepositData = async () => {
-    try {
-      const [transRes, depoRes] = await Promise.all([
-        fetch(`${FIREBASE_BASE}transactions.json`),
-        fetch(`${FIREBASE_BASE}deposits.json`)
-      ]);
-      const transData = await transRes.json();
-      const depoData = await depoRes.json();
-      
-      setRawTransactions(transData || {});
-      setParsedDeposits(depoData || {});
-    } catch (err) {
-      console.log('Error updating deposit view frames:', err);
-    }
-  };
-
   useEffect(() => {
     fetchLiveMetrics();
-    fetchDepositData();
-    const interval = setInterval(() => {
-      fetchLiveMetrics();
-      if (currentView === 'deposits') fetchDepositData();
-    }, 12000);
+    const interval = setInterval(fetchLiveMetrics, 12000);
     return () => clearInterval(interval);
-  }, [currentView]);
+  }, []);
 
   const switchView = (viewKey, title) => {
     setCurrentView(viewKey);
     setViewTitle(title);
   };
 
-  // Dispatch global broadcast message to database node
   const handleSendBroadcast = async (e) => {
     e.preventDefault();
     if (!broadcastText.trim()) return;
@@ -94,95 +68,13 @@ export default function Dashboard({ adminUser = 'Admin' }) {
         body: JSON.stringify(payload)
       });
 
-      alert('Broadcast dispatched safely to Telegram backend queue node.');
+      alert('Broadcast safely dispatched to Telegram bot queue.');
       setBroadcastText('');
     } catch (err) {
       console.error(err);
-      alert('Network fault dispatching broadcast data.');
+      alert('Network fault sending broadcast data.');
     } finally {
       setIsBroadcasting(false);
-    }
-  };
-
-  // Regex Core processor for parsing SMS logs live
-  const runSmsSyncProcessor = async () => {
-    if (Object.keys(rawTransactions).length === 0) {
-      alert('The raw transaction pool is clean.');
-      return;
-    }
-
-    setIsSyncing(true);
-    const logs = [];
-    let processedCount = 0;
-
-    try {
-      for (const [firebasePushId, data] of Object.entries(rawTransactions)) {
-        const messageText = data?.message || '';
-        if (!messageText) continue;
-
-        let txId = '';
-        let amount = 0.00;
-        let sender = 'Unknown Customer';
-
-        const idMatch = messageText.toUpperCase().match(/\b([A-Z0-9]{10})\b/);
-        if (idMatch) txId = idMatch[1];
-
-        const amtMatchEng = messageText.match(/received\s+ETB\s*([\d,]+\.\d{2})/i);
-        const amtMatchAmh = messageText.match(/([\d,]+\.\d{2})\s*ብር/u);
-
-        if (amtMatchEng) {
-          amount = parseFloat(amtMatchEng[1].replace(/,/g, ''));
-        } else if (amtMatchAmh) {
-          amount = parseFloat(amtMatchAmh[1].replace(/,/g, ''));
-        }
-
-        const senderMatchEng = messageText.match(/from\s+([A-Za-z0-9\s\+\.\(\)]+?)(?=\s+\d)/i);
-        const senderMatchAmh = messageText.match(/ወደ\s+([A-Za-z0-9\s\+\.\(\)]+?)(?=\s+\d)/u);
-
-        if (senderMatchEng) {
-          sender = senderMatchEng[1].trim();
-        } else if (senderMatchAmh) {
-          sender = senderMatchAmh[1].trim();
-        }
-
-        if (!txId) {
-          logs.push(`⚠️ Invalid structural formatting on push node ${firebasePushId}`);
-          continue;
-        }
-
-        const targetDepositUrl = `${FIREBASE_BASE}deposits/${txId}.json`;
-        const checkRes = await fetch(targetDepositUrl);
-        const exists = await checkRes.json();
-
-        if (!exists) {
-          const depositPayload = {
-            tx_id: txId,
-            amount: amount,
-            sender: sender,
-            raw_text: messageText,
-            status: 'unclaimed',
-            timestamp: data?.timestamp ? parseInt(data.timestamp, 10) : Date.now()
-          };
-
-          await fetch(targetDepositUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(depositPayload)
-          });
-        }
-
-        await fetch(`${FIREBASE_BASE}transactions/${firebasePushId}.json`, { method: 'DELETE' });
-        logs.push(`✅ Saved: ${txId} | ETB ${amount.toFixed(2)}`);
-        processedCount++;
-      }
-
-      setSyncLogs(logs);
-      alert(`Pipeline optimization execution complete. Normalized ${processedCount} entries.`);
-      await fetchDepositData();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSyncing(false);
     }
   };
 
@@ -214,22 +106,10 @@ export default function Dashboard({ adminUser = 'Admin' }) {
         
         .view-pane { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
         .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        
-        /* Grid setup for Deposits section layout split */
-        .deposit-split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex-grow: 1; min-height: 0; }
-        .deposit-panel-card { background: #13131a; border: 1px solid var(--border); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; min-height: 0; }
-        .deposit-panel-card h4 { margin: 0 0 12px 0; color: #fff; font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-        
         .broadcast-form { display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
         .textarea-input { background: #070709; border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: #fff; font-size: 14px; min-height: 120px; }
         .action-btn { background: var(--accent); color: #000; padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .management-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        .management-table th { padding: 10px; border-bottom: 2px solid var(--border); color: var(--text-dim); }
-        .management-table td { padding: 10px; border-bottom: 1px solid var(--border); }
-        .table-responsive { overflow-x: auto; overflow-y: auto; flex-grow: 1; }
-        .log-box { background: #070709; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; color: #4ade80; height: 100px; overflow-y: auto; margin-top: 10px; }
       `}</style>
 
       {/* Sidebar navigation wrapper */}
@@ -248,7 +128,7 @@ export default function Dashboard({ adminUser = 'Admin' }) {
         </div>
       </div>
 
-      {/* Main Workspace Panel */}
+      {/* Main Content Pane Frame */}
       <div className="main-content">
         <div className="top-bar">
           <div className="top-bar-left">
@@ -268,121 +148,36 @@ export default function Dashboard({ adminUser = 'Admin' }) {
           </div>
         </div>
 
+        {/* View Workspace Container Wrapper */}
         <div className="view-container">
-          {/* VIEW: Broadcast Engine */}
           {currentView === 'broadcast' && (
             <div className="view-pane">
               <div className="view-header">
                 <div>
                   <h3>Global Bot Notification Dispatcher</h3>
-                  <p style={{ color: 'var(--text-dim)', fontSize: '13px', margin: '4px 0 0 0' }}>Sends real-time messages to the Telegram client network channel.</p>
+                  <p style={{ color: 'var(--text-dim)', fontSize: '13px', margin: '4px 0 0 0' }}>Sends real-time global messages down the Telegram client network pipeline.</p>
                 </div>
               </div>
               <form className="broadcast-form" onSubmit={handleSendBroadcast}>
                 <textarea 
                   className="textarea-input"
-                  placeholder="Type message string or maintenance warning updates here..."
+                  placeholder="Type structural notification string or system maintenance warning updates..."
                   value={broadcastText}
                   onChange={(e) => setBroadcastText(e.target.value)}
                   disabled={isBroadcasting}
                 />
                 <button type="submit" className="action-btn" disabled={isBroadcasting || !broadcastText.trim()}>
-                  {isBroadcasting ? 'Sending...' : 'Fire Broadcast Alert'}
+                  {isBroadcasting ? 'Dispatched Syncing...' : 'Fire Broadcast Alert'}
                 </button>
               </form>
             </div>
           )}
 
-          {/* VIEW: Player Directory */}
           {currentView === 'players' && <PlayerDirectory />}
-
-          {/* VIEW: Deposit System Matrix */}
-          {currentView === 'deposits' && (
-            <div className="view-pane">
-              <div className="view-header" style={{ marginBottom: '14px' }}>
-                <div>
-                  <h3>Deposit Management Terminal</h3>
-                  <p style={{ color: 'var(--text-dim)', fontSize: '12px', margin: '2px 0 0 0' }}>Parse incoming SMS message queues down to structured structural reference payloads.</p>
-                </div>
-                <button className="action-btn" onClick={runSmsSyncProcessor} disabled={isSyncing || Object.keys(rawTransactions).length === 0}>
-                  {isSyncing ? 'Parsing logs...' : '⚡ Run Extraction Sync Engine'}
-                </button>
-              </div>
-
-              <div className="deposit-split-grid">
-                {/* SUB-PANEL: Raw Queue incoming pool */}
-                <div className="deposit-panel-card">
-                  <h4>Incoming Raw Logs ({Object.keys(rawTransactions).length})</h4>
-                  <div className="table-responsive">
-                    <table className="management-table">
-                      <thead>
-                        <tr>
-                          <th>Log Entry Reference</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.keys(rawTransactions).length === 0 ? (
-                          <tr><td style={{ color: 'var(--text-dim)', textAlign: 'center', padding: '20px' }}>Transaction pool is empty.</td></tr>
-                        ) : (
-                          Object.entries(rawTransactions).map(([id, item]) => (
-                            <tr key={id}>
-                              <td style={{ wordBreak: 'break-word', color: '#b5b5be' }}>
-                                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--accent)', display: 'block', marginBottom: '3px' }}>Node: {id}</span>
-                                {item.message}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* SUB-PANEL: Parsed and Extracted Deposit entries */}
-                <div className="deposit-panel-card">
-                  <h4>Structured Deposits ({Object.keys(parsedDeposits).length})</h4>
-                  <div className="table-responsive">
-                    <table className="management-table">
-                      <thead>
-                        <tr>
-                          <th>TX ID</th>
-                          <th>Sender</th>
-                          <th>Amount</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.keys(parsedDeposits).length === 0 ? (
-                          <tr><td colSpan="4" style={{ color: 'var(--text-dim)', textAlign: 'center', padding: '20px' }}>No parsed records found.</td></tr>
-                        ) : (
-                          Object.values(parsedDeposits).reverse().map((depo) => (
-                            <tr key={depo.tx_id}>
-                              <td style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{depo.tx_id}</td>
-                              <td style={{ color: '#b5b5be' }}>{depo.sender}</td>
-                              <td style={{ color: 'var(--accent)', fontWeight: '600' }}>{depo.amount?.toFixed(2)}</td>
-                              <td>
-                                <span className={`status-badge ${depo.status}`}>
-                                  {depo.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {syncLogs.length > 0 && (
-                <div className="log-box">
-                  {syncLogs.map((log, index) => <div key={index}>{log}</div>)}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* VIEW: Withdrawal Vault */}
+          
+          {/* Swapped out the old content placeholder directly for your extraction script interface */}
+          {currentView === 'deposits' && <DepositSystem />}
+          
           {currentView === 'withdrawals' && <WithdrawalVault />}
         </div>
       </div>
