@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PlayerDirectory from './PlayerDirectory';
 import WithdrawalVault from './WithdrawalVault';
+import DepositSystem from './DepositSystem';
 
 const FIREBASE_BASE = 'https://ydm-bingo-realtime-default-rtdb.firebaseio.com/';
 
