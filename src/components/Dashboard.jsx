@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PlayerDirectory from './PlayerDirectory';
 import WithdrawalVault from './WithdrawalVault';
 import DepositSystem from './DepositSystem'; 
-
+import AdPublisher from './AdPublisher';
+ 
 const FIREBASE_BASE = 'https://ydm-bingo-realtime-default-rtdb.firebaseio.com/';
 
 export default function Dashboard({ adminUser = 'Admin' }) {
@@ -15,7 +16,7 @@ export default function Dashboard({ adminUser = 'Admin' }) {
   const [broadcastText, setBroadcastText] = useState('');
   const [imageUrl, setImageUrl] = useState(''); // New state for image URL
   const [buttonText, setButtonText] = useState('🎮 Start Game'); // Default button text
-  const [buttonUrl, setButtonUrl] = useState('https://t.me/YourBingoBot/app'); // Your Telegram WebApp link or Bot start link
+  const [buttonUrl, setButtonUrl] = useState('https://t.me/ydmbingobot/app'); // Your Telegram WebApp link or Bot start link
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   const fetchLiveMetrics = async () => {
@@ -138,6 +139,7 @@ export default function Dashboard({ adminUser = 'Admin' }) {
             <li><button className={`nav-link ${currentView === 'players' ? 'active' : ''}`} onClick={() => switchView('players', 'Player Directory')}>👥 Player Directory</button></li>
             <li><button className={`nav-link ${currentView === 'deposits' ? 'active' : ''}`} onClick={() => switchView('deposits', 'Deposit System')}>📥 Deposit System</button></li>
             <li><button className={`nav-link ${currentView === 'withdrawals' ? 'active' : ''}`} onClick={() => switchView('withdrawals', 'Withdrawal Vault')}>📤 Withdrawal Vault</button></li>
+            <li><button className={`nav-link ${currentView === 'ads' ? 'active' : ''}`} onClick={() => switchView('ads', 'Ad Publisher')}>💸 Ad Publisher</button></li>
           </ul>
         </div>
         <div className="user-profile">
@@ -234,6 +236,7 @@ export default function Dashboard({ adminUser = 'Admin' }) {
           {currentView === 'players' && <PlayerDirectory />}
           {currentView === 'deposits' && <DepositSystem />}
           {currentView === 'withdrawals' && <WithdrawalVault />}
+          {currentView === 'ads' && <AdPublisher adminUser={adminUser} />}
         </div>
       </div>
     </div>
