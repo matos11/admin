@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import PlayerDirectory from './PlayerDirectory';
 import WithdrawalVault from './WithdrawalVault';
-import DepositSystem from './DepositSystem'; // Import the newly created terminal
+import DepositSystem from './DepositSystem'; 
 
 const FIREBASE_BASE = 'https://ydm-bingo-realtime-default-rtdb.firebaseio.com/';
 
 export default function Dashboard({ adminUser = 'Admin' }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [currentView, setCurrentView] = useState('broadcast'); // views: broadcast, players, deposits, withdrawals
+  const [currentView, setCurrentView] = useState('broadcast'); 
   const [viewTitle, setViewTitle] = useState('Broadcast Engine');
   const [metrics, setMetrics] = useState({ total_users: 0, total_balance: 0, pending_withdrawals: 0 });
 
   // Broadcast specific state
   const [broadcastText, setBroadcastText] = useState('');
+  const [imageUrl, setImageUrl] = useState(''); // New state for image URL
+  const [buttonText, setButtonText] = useState('🎮 Start Game'); // Default button text
+  const [buttonUrl, setButtonUrl] = useState('https://t.me/YourBingoBot/app'); // Your Telegram WebApp link or Bot start link
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   const fetchLiveMetrics = async () => {
@@ -55,8 +58,18 @@ export default function Dashboard({ adminUser = 'Admin' }) {
 
     setIsBroadcasting(true);
     try {
+      // Upgraded payload including rich text elements, image link, and inline keyboard schemas
       const payload = {
         message: broadcastText.trim(),
+        image_url: imageUrl.trim() || null, // Optional image
+        inline_keyboard: [
+          [
+            {
+              text: buttonText.trim(),
+              url: buttonUrl.trim()
+            }
+          ]
+        ],
         sender: adminUser,
         timestamp: Date.now(),
         status: 'pending'
@@ -68,8 +81,9 @@ export default function Dashboard({ adminUser = 'Admin' }) {
         body: JSON.stringify(payload)
       });
 
-      alert('Broadcast safely dispatched to Telegram bot queue.');
+      alert('Rich Broadcast safely dispatched to Telegram bot queue.');
       setBroadcastText('');
+      setImageUrl('');
     } catch (err) {
       console.error(err);
       alert('Network fault sending broadcast data.');
@@ -107,7 +121,10 @@ export default function Dashboard({ adminUser = 'Admin' }) {
         .view-pane { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
         .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .broadcast-form { display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
-        .textarea-input { background: #070709; border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: #fff; font-size: 14px; min-height: 120px; }
+        .text-input, .textarea-input { background: #070709; border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: #fff; font-size: 14px; }
+        .textarea-input { min-height: 120px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
         .action-btn { background: var(--accent); color: #000; padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
@@ -154,30 +171,68 @@ export default function Dashboard({ adminUser = 'Admin' }) {
             <div className="view-pane">
               <div className="view-header">
                 <div>
-                  <h3>Global Bot Notification Dispatcher</h3>
-                  <p style={{ color: 'var(--text-dim)', fontSize: '13px', margin: '4px 0 0 0' }}>Sends real-time global messages down the Telegram client network pipeline.</p>
+                  <h3>Global Rich Notification Dispatcher</h3>
+                  <p style={{ color: 'var(--text-dim)', fontSize: '13px', margin: '4px 0 0 0' }}>Sends media broadcast messages with call-to-action buttons downstream.</p>
                 </div>
               </div>
               <form className="broadcast-form" onSubmit={handleSendBroadcast}>
-                <textarea 
-                  className="textarea-input"
-                  placeholder="Type structural notification string or system maintenance warning updates..."
-                  value={broadcastText}
-                  onChange={(e) => setBroadcastText(e.target.value)}
-                  disabled={isBroadcasting}
-                />
+                
+                <div className="form-group">
+                  <label>Message Content (Markdown Supported)</label>
+                  <textarea 
+                    className="textarea-input"
+                    placeholder="Type broadcast text description or updates..."
+                    value={broadcastText}
+                    onChange={(e) => setBroadcastText(e.target.value)}
+                    disabled={isBroadcasting}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Banner Image URL (Optional)</label>
+                  <input 
+                    type="url"
+                    className="text-input"
+                    placeholder="https://example.com/banner.jpg"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    disabled={isBroadcasting}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label>Inline Button Text</label>
+                    <input 
+                      type="text"
+                      className="text-input"
+                      value={buttonText}
+                      onChange={(e) => setButtonText(e.target.value)}
+                      disabled={isBroadcasting}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Inline Button URL Redirect</label>
+                    <input 
+                      type="text"
+                      className="text-input"
+                      value={buttonUrl}
+                      onChange={(e) => setButtonUrl(e.target.value)}
+                      disabled={isBroadcasting}
+                    />
+                  </div>
+                </div>
+
                 <button type="submit" className="action-btn" disabled={isBroadcasting || !broadcastText.trim()}>
-                  {isBroadcasting ? 'Dispatched Syncing...' : 'Fire Broadcast Alert'}
+                  {isBroadcasting ? 'Dispatched Syncing...' : 'Fire Rich Media Alert'}
                 </button>
               </form>
             </div>
           )}
 
           {currentView === 'players' && <PlayerDirectory />}
-          
-          {/* Swapped out the old content placeholder directly for your extraction script interface */}
           {currentView === 'deposits' && <DepositSystem />}
-          
           {currentView === 'withdrawals' && <WithdrawalVault />}
         </div>
       </div>
