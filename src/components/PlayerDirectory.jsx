@@ -37,7 +37,6 @@ export default function PlayerDirectory() {
     fetchPlayers();
   }, []);
 
-  // Update a player's balance directly in the RTDB node
   const handleUpdateBalance = async (playerId) => {
     const parsedAmt = parseFloat(editingBalance);
     if (isNaN(parsedAmt) || parsedAmt < 0) {
@@ -63,7 +62,6 @@ export default function PlayerDirectory() {
     }
   };
 
-  // Completely drop a player entity record from the node queue
   const handleDeletePlayer = async (playerId, name) => {
     if (!window.confirm(`Are you absolutely sure you want to completely remove "${name || 'this player'}" from the database? This action cannot be undone.`)) {
       return;
@@ -101,58 +99,98 @@ export default function PlayerDirectory() {
   );
 
   return (
-    <div className="view-pane">
+    <div className="directory-container">
       <style>{`
-        .search-input { background: #070709; border: 1px solid rgba(255,255,255,0.05); padding: 8px 14px; border-radius: 6px; color: #fff; font-size: 13px; width: 240px; }
-        .search-input:focus { outline: 1px solid #ffbc00; }
-        .management-table tr.clickable-row { cursor: pointer; transition: background 0.15s; }
-        .management-table tr.clickable-row:hover { background: rgba(255,255,255,0.02); }
-        .management-table tr.expanded-row { background: #13131a; }
-        .detail-panel-box { padding: 16px 20px; border-left: 3px solid #ffbc00; background: rgba(255, 188, 0, 0.01); display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; }
-        .detail-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 28px; flex-grow: 1; }
-        .detail-field span { display: block; font-size: 11px; color: #8a8a93; text-transform: uppercase; margin-bottom: 2px; }
-        .detail-field p { margin: 0; font-size: 13px; color: #fff; font-weight: 500; word-break: break-all; }
-        .interaction-panel-card { background: #070709; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 14px; width: 300px; display: flex; flex-direction: column; gap: 12px; }
-        .interaction-panel-card h5 { margin: 0; font-size: 12px; color: #8a8a93; text-transform: uppercase; }
-        .balance-input-row { display: flex; gap: 8px; }
-        .inline-input { background: #111115; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 10px; color: #fff; font-size: 13px; width: 100%; }
-        .inline-input:focus { outline: 1px solid #ffbc00; }
-        .save-btn { background: #ffbc00; color: #000; border: none; font-weight: 600; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-        .delete-btn { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); font-weight: 600; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s; text-align: center; }
-        .delete-btn:hover { background: #ef4444; color: #fff; }
-        .save-btn:disabled, .delete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .mono { font-family: monospace; }
-        .bold { font-weight: 600; color: #fff; }
-        .accent-text { color: #ffbc00; font-weight: 600; }
-        .dim-text { color: #8a8a93; font-size: 13px; }
+        .directory-container { color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        /* Modern Header Layout */
+        .directory-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+        .header-title h3 { font-size: 20px; font-weight: 600; margin: 0; color: #ffffff; letter-spacing: -0.02em; }
+        .header-title p { color: #a1a1aa; font-size: 14px; margin: 6px 0 0 0; }
+        
+        /* Glassmorphic Search Bar */
+        .search-wrapper { position: relative; }
+        .search-input { background: #18181b; border: 1px solid #27272a; padding: 10px 16px; padding-left: 36px; border-radius: 10px; color: #fff; font-size: 14px; width: 280px; transition: all 0.2s ease; }
+        .search-input:focus { outline: none; border-color: #ffbc00; background: #202024; box-shadow: 0 0 0 3px rgba(255, 188, 0, 0.15); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #71717a; font-size: 14px; pointer-events: none; }
+        
+        /* Table Layout Modernization */
+        .modern-table-card { background: #111115; border: 1px solid #222226; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
+        .modern-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        .modern-table th { background: #141419; padding: 14px 20px; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; color: #71717a; border-bottom: 1px solid #222226; }
+        .modern-table td { padding: 16px 20px; border-bottom: 1px solid #1c1c21; color: #e4e4e7; vertical-align: middle; }
+        
+        .row-interactive { cursor: pointer; transition: background 0.2s ease; }
+        .row-interactive:hover { background: #16161c; }
+        .row-active { background: #16161c; }
+        
+        /* Modern Badges & Micro-Typography */
+        .player-id-pill { background: #1c1c21; color: #a1a1aa; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-size: 12px; border: 1px solid #27272a; }
+        .player-name-bold { font-weight: 600; color: #ffffff; font-size: 14px; }
+        .balance-accent { color: #ffbc00; font-weight: 700; font-size: 15px; }
+        .status-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(74, 222, 128, 0.1); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        
+        /* Dynamic Accordion Dropdown Content */
+        .drawer-td { padding: 0 !important; background: #0e0e12; }
+        .drawer-inner-box { padding: 24px; display: flex; gap: 32px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; border-bottom: 1px solid #222226; }
+        
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; flex-grow: 1; }
+        .info-meta-node { display: flex; flex-direction: column; gap: 4px; }
+        .info-meta-node label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: #71717a; font-weight: 600; }
+        .info-meta-node p { margin: 0; font-size: 14px; color: #e4e4e7; word-break: break-all; }
+        
+        /* Control Terminal Box */
+        .console-card { background: #141419; border: 1px solid #222226; border-radius: 10px; padding: 18px; width: 320px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .console-card h5 { margin: 0; font-size: 12px; text-transform: uppercase; color: #a1a1aa; letter-spacing: 0.02em; }
+        
+        .input-group-action { display: flex; gap: 8px; position: relative; }
+        .console-input { background: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 14px; width: 100%; box-sizing: border-box; transition: border 0.2s; }
+        .console-input:focus { outline: none; border-color: #ffbc00; }
+        
+        /* Action Buttons styling */
+        .btn-action-primary { background: #ffbc00; color: #000; border: none; font-weight: 600; padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: opacity 0.2s; }
+        .btn-action-primary:hover { opacity: 0.9; }
+        
+        .btn-action-danger { background: transparent; color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); font-weight: 500; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-action-danger:hover { background: #f43f5e; color: #fff; border-color: #f43f5e; }
+        
+        .btn-action-primary:disabled, .btn-action-danger:disabled { opacity: 0.3; cursor: not-allowed; }
+        .table-loader { padding: 48px; text-align: center; color: #a1a1aa; font-size: 14px; }
       `}</style>
 
-      <div className="view-header">
-        <div>
-          <h3>👥 Player Directory</h3>
-          <p style={{ color: '#8a8a93', fontSize: '13px', margin: '4px 0 0 0' }}>Click any row entry to manage ledger parameters or evict individual registration contexts.</p>
+      {/* Header Segment */}
+      <div className="directory-header">
+        <div className="header-title">
+          <h3>Player Directory</h3>
+          <p>Manage real-time player ledgers, review handshake identifiers, and adjust balance nodes.</p>
         </div>
-        <input 
-          type="text" 
-          placeholder="Search by name or phone..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
-        />
+        <div className="search-wrapper">
+          <span className="search-icon">🔍</span>
+          <input 
+            type="text" 
+            placeholder="Search by name, handle or phone..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
       </div>
 
+      {/* Table Module Wrapper */}
       {loading ? (
-        <div style={{ padding: '32px', color: '#8a8a93', textAlign: 'center' }}>Loading synchronized database records...</div>
+        <div className="modern-table-card table-loader">
+          Loading synchronized database records...
+        </div>
       ) : (
-        <div className="table-responsive">
-          <table className="management-table">
+        <div className="modern-table-card">
+          <table className="modern-table">
             <thead>
               <tr>
-                <th>Player ID</th>
+                <th>ID Handle</th>
                 <th>Username / Name</th>
                 <th>Phone Number</th>
-                <th>Current Balance</th>
-                <th>Joined Date</th>
+                <th>Current Ledger</th>
+                <th>Registration Date</th>
               </tr>
             </thead>
             <tbody>
@@ -161,59 +199,63 @@ export default function PlayerDirectory() {
                   const isExpanded = expandedPlayerId === player.id;
                   return (
                     <React.Fragment key={player.id}>
-                      {/* MAIN CLICKABLE RECORD ROW */}
+                      {/* Main Entry Row */}
                       <tr 
-                        className={`clickable-row ${isExpanded ? 'expanded-row' : ''}`}
+                        className={`row-interactive ${isExpanded ? 'row-active' : ''}`}
                         onClick={() => toggleExpandPlayer(player)}
                       >
-                        <td className="mono">{player.id.substring(0, 8)}...</td>
-                        <td className="bold">{player.username || player.name || 'N/A'}</td>
-                        <td>{player.phone || 'N/A'}</td>
-                        <td className="accent-text">ETB {parseFloat(player.balance || 0).toFixed(2)}</td>
-                        <td className="dim-text">{player.createdAt ? new Date(player.createdAt).toLocaleDateString() : 'N/A'}</td>
+                        <td><span className="player-id-pill">{player.id.substring(0, 8)}</span></td>
+                        <td><span className="player-name-bold">{player.username || player.name || 'N/A'}</span></td>
+                        <td>{player.phone || '—'}</td>
+                        <td><span className="balance-accent">ETB {parseFloat(player.balance || 0).toFixed(2)}</span></td>
+                        <td style={{ color: '#71717a' }}>
+                          {player.createdAt ? new Date(player.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                        </td>
                       </tr>
 
-                      {/* CONDITIONAL SUB-PANEL DRAWER FOR METRIC MUTATIONS */}
+                      {/* Dropdown Administration Drawer Panel */}
                       {isExpanded && (
-                        <tr className="expanded-row">
-                          <td colSpan="5" style={{ padding: '0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div className="detail-panel-box">
+                        <tr>
+                          <td colSpan="5" className="drawer-td">
+                            <div className="drawer-inner-box">
                               
-                              {/* Metadata Grid Fields */}
-                              <div className="detail-group">
-                                <div className="detail-field">
-                                  <span>Full Database Key</span>
-                                  <p className="mono" style={{ fontSize: '12px', color: '#8a8a93' }}>{player.id}</p>
+                              {/* Metadata Presentation */}
+                              <div className="info-grid">
+                                <div className="info-meta-node">
+                                  <label>Full Firebase Reference Node String</label>
+                                  <p style={{ fontFamily: 'monospace', fontSize: '13px', color: '#a1a1aa' }}>{player.id}</p>
                                 </div>
-                                <div className="detail-field">
-                                  <span>Account Lifecycle State</span>
-                                  <p style={{ color: '#4ade80' }}>● Active Connected Client</p>
+                                <div className="info-meta-node">
+                                  <label>Network Lifecycle Status</label>
+                                  <div>
+                                    <span className="status-pill"><span style={{ fontSize: '8px' }}>●</span> Active Context Connected</span>
+                                  </div>
                                 </div>
-                                <div className="detail-field">
-                                  <span>Telegram Handshake ID</span>
-                                  <p className="mono">{player.telegramId || 'No Bound Telegram Session'}</p>
+                                <div className="info-meta-node">
+                                  <label>Telegram Handshake Session ID</label>
+                                  <p style={{ fontFamily: 'monospace' }}>{player.telegramId || 'No Session Bound'}</p>
                                 </div>
-                                <div className="detail-field">
-                                  <span>Timestamp Epoch</span>
-                                  <p className="mono">{player.createdAt || 'N/A'}</p>
+                                <div className="info-meta-node">
+                                  <label>Creation Epoch Timestamp</label>
+                                  <p style={{ fontFamily: 'monospace', color: '#71717a' }}>{player.createdAt || '—'}</p>
                                 </div>
                               </div>
 
-                              {/* Balance & Ledger Management Console block */}
-                              <div className="interaction-panel-card">
-                                <h5>Ledger Balance Correction</h5>
-                                <div className="balance-input-row">
+                              {/* Terminal Control Console panel */}
+                              <div className="console-card">
+                                <h5>Ledger Balance Modification</h5>
+                                <div className="input-group-action">
                                   <input 
                                     type="number" 
-                                    className="inline-input"
+                                    className="console-input"
                                     step="0.01"
                                     value={editingBalance}
                                     onChange={(e) => setEditingBalance(e.target.value)}
-                                    onClick={(e) => e.stopPropagation()} // Stop accordion from collapsing when typing
+                                    onClick={(e) => e.stopPropagation()} 
                                     disabled={isMutating}
                                   />
                                   <button 
-                                    className="save-btn"
+                                    className="btn-action-primary"
                                     disabled={isMutating}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -225,14 +267,14 @@ export default function PlayerDirectory() {
                                 </div>
 
                                 <button 
-                                  className="delete-btn"
+                                  className="btn-action-danger"
                                   disabled={isMutating}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDeletePlayer(player.id, player.username || player.name);
                                   }}
                                 >
-                                  🗑️ Delete Profile Permanently
+                                  🗑️ Evict Account Record Completely
                                 </button>
                               </div>
 
@@ -245,7 +287,9 @@ export default function PlayerDirectory() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ padding: '32px', textAlign: 'center', color: '#8a8a93' }}>No players match current filter targets.</td>
+                  <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#71717a' }}>
+                    No player accounts match your filtering targets.
+                  </td>
                 </tr>
               )}
             </tbody>
